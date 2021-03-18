@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="project2_solution" type="solution.py" name="project2_solution" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz_sim" args="-d $(find project2_solution)/config_file_project2.rviz" output="screen"/>
+</launch>

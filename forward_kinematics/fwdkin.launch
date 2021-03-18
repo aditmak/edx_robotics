@@ -1,5 +1,6 @@
 <launch>
-    <node pkg="forward_kinematics" type="forward_kinematics" name="solution" output="screen"/>
-    <node pkg="robot_mover" type="robot_mover" name="mover" output="screen"/>
-    <node pkg="robot_sim" type="robot_sim" name="robot_sim_bringup" output="screen"/>
+    <node pkg="forward_kinematics" type="solution.py" name="forward_kinematics" output="screen"/>
+    <node pkg="robot_mover" type="mover" name="robot_mover" output="screen"/>
+    <node pkg="robot_sim" type="robot_sim_bringup" name="robot_sim" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz_simulation" args="-d $(find forward_kinematics)/config_file.rviz" output="screen"/>
 </launch>

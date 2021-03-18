@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="project1_solution" type="solution.py" name="project1_solution" output="screen"/>
+    <node pkg="two_int_talker" type="two_int_talker.py" name="two_int_talker" output="screen"/>
+</launch>
