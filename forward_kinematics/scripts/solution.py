@@ -25,9 +25,9 @@ def convert_to_message(T, child, parent):
     t.transform.rotation.x = rotation[0]
     t.transform.rotation.y = rotation[1]
     t.transform.rotation.z = rotation[2]
-    t.transform.rotation.w = rotation[3]        
+    t.transform.rotation.w = rotation[3]
     return t
-    
+
 #Our main class for computing Forward Kinematics
 class ForwardKinematics(object):
 
@@ -85,43 +85,43 @@ class ForwardKinematics(object):
         self.pub_tf.publish(all_transforms)
 
 
-    """ This is the function that performs the main forward kinematics computation. It accepts as 
+    """ This is the function that performs the main forward kinematics computation. It accepts as
     parameters all the information needed about the joints and links of the robot, as well as the current
-    values of all the joints, and must compute and return the transforms from the world frame to all the 
+    values of all the joints, and must compute and return the transforms from the world frame to all the
     links, ready to be published through tf.
 
     Parameters are as follows:
     - link_names: a list with all the names of the robot's links, ordered from proximal to distal.
     These are also the names of the link's respective coordinate frame. In other words, the transform
-    from the world to link i should be published with "world_link" as the parent frame and link_names[i] 
-    as the child frame.    
+    from the world to link i should be published with "world_link" as the parent frame and link_names[i]
+    as the child frame.
 
-    - joints: a list of all the joints of the robot, in the same order as the links listed above. Each 
+    - joints: a list of all the joints of the robot, in the same order as the links listed above. Each
     entry in this list is an object which contains the following fields:
      * joint.origin.xyz: the translation from the frame of the previous joint to this one
-     * joint.origin.rpy: the rotation from the frame of the previous joint to this one, 
+     * joint.origin.rpy: the rotation from the frame of the previous joint to this one,
        in ROLL-PITCH-YAW XYZ convention
-     * joint.type: either 'fixed' or 'revolute'. A fixed joint does not move; it is meant to 
-       contain a static transform. 
+     * joint.type: either 'fixed' or 'revolute'. A fixed joint does not move; it is meant to
+       contain a static transform.
      * joint.name: the name of the current joint in the robot description
      * joint.axis: (only if type is 'revolute') the axis of rotation of the joint
 
      - joint_values contains information about the current joint values in the robot. It contains
-     information about *all* the joints, and the ordering can vary, so we must find the relevant value 
+     information about *all* the joints, and the ordering can vary, so we must find the relevant value
      for a particular joint you are considering. We can use the following fields:
       * joint_values.name: a list of the names of *all* the joints in the robot
-      * joint_values.position: a list of the current values of *all* the joints in the robot, in the same 
+      * joint_values.position: a list of the current values of *all* the joints in the robot, in the same
         order as the names in the list above.
      To find the value of the joint we care about, we must find its name in the "name" list, then take
      the value found at the same index in the "position" list.
 
-    The function must return one tf message. The "transforms" field of this message must list *all* the 
+    The function must return one tf message. The "transforms" field of this message must list *all* the
     transforms from the world coordinate frame to the links of the robot. In other words, when you are done,
-    all_transforms.transforms must contain a list in which you must place all the transforms from the 
+    all_transforms.transforms must contain a list in which you must place all the transforms from the
     "world_link" coordinate frame to each of the coordinate frames listed in "link_names". You can use the
-    "convert_to_message" function (defined above) for a convenient way to create a tf message from a 
+    "convert_to_message" function (defined above) for a convenient way to create a tf message from a
     transformation matrix.
-    """    
+    """
     def compute_transforms(self, link_names, joints, joint_values):
         all_transforms = tf.msg.tfMessage()
         # We start with the identity
@@ -129,15 +129,21 @@ class ForwardKinematics(object):
 
         for joint in joints:
             if joint.type == "fixed":
+                #only translation is added because in URDF there is no static rotation of the frame.
                 T = tf.transformations.concatenate_matrices(T, tf.transformations.translation_matrix(joint.origin.xyz))
             else:
-                T = tf.transformations.concatenate_matrices(T,tf.transformations.translation_matrix(joint.origin.xyz),tf.transformations.rotation_matrix(joint_values.position[joint_values.name.index(joint.name)], joint.axis))
-            all_transforms.transforms.append(convert_to_message(T,joint.child,"world_link"))
+                #only static translations are added because in URDF there are no static rotations -> joint.origin.rpy = (0,0,0) for all frames.
+                T = tf.transformations.concatenate_matrices(
+                        T, #transformation uptil previous joint.
+                        tf.transformations.translation_matrix(joint.origin.xyz), # static translation of the co_ordinate frame.
+                        tf.transformations.rotation_matrix(joint_values.position[joint_values.name.index(joint.name)], joint.axis)
+                        #above transformation is the rotation around the Z axis of each joint.
+                    )
+            all_transforms.transforms.append(convert_to_message(T,joint.child,"world_link")) #adding all transformations into a list to transfer it to ROBOT
 
         return all_transforms
-       
+
 if __name__ == '__main__':
     rospy.init_node('fwk', anonymous=True)
     fwk = ForwardKinematics()
     rospy.spin()
-
