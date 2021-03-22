@@ -37,6 +37,14 @@ def translation_matrix(matrix):
     t43 = R[:3, 3]
     return t43
 
+def scaling(np_array, limit):
+    norm = numpy.linalg.norm(np_array)
+    if norm > limit:
+        scaling = np_array * (limit / norm)
+    else:
+        scaling = np_array
+    return scaling
+
 
 # This is the function that must be filled in as part of the Project.
 def cartesian_control(joint_transforms, b_T_ee_current, b_T_ee_desired,
@@ -44,13 +52,73 @@ def cartesian_control(joint_transforms, b_T_ee_current, b_T_ee_desired,
     num_joints = len(joint_transforms)
     dq = numpy.zeros(num_joints)
     #-------------------- Fill in your code here ---------------------------
-    
-    
-    
-    
-    
-    #----------------------------------------------------------------------
+    b_T_ee_current_inverse = numpy.linalg.inv(b_T_ee_current)
+    #desired = [some transformation] * current
+    #[some transformation] = desired * inverse(current)
+    ee_c_T_ee_d = numpy.dot(b_T_ee_desired, b_T_ee_current_inverse)
+    '''
+    Since v_ee is a matrix of 1x6, there is a need to break the above
+    transfomation matrix into translation and rotation and then convert
+    rotation matrix into 3 components. One way to do it, is using axis and
+    angle
+    '''
+    ee_c_T_ee_d_trans = translation_matrix(ee_c_T_ee_d)
+    angle, axis = rotation_from_matrix(ee_c_T_ee_d[:3,:3])
+    ee_c_T_ee_d_rot = numpy.dot(angle,axis)
+
+    #Step 2 - dot_x = gain * delta_X. There is also a check for threshold values
+    proportional_gain = 2.0
+    dx_trans = proportional_gain * ee_c_T_ee_d_trans
+    dx_rot = proportional_gain * ee_c_T_ee_d_rot
+
+    trans_limit = 0.1
+    vel_limit = 1.0
+
+    scale_dx_trans = scaling(dx_trans, trans_limit)
+    scale_dx_rot = scaling(dx_rot, vel_limit)
+
+    #complete V_ee matrix 1x6 contains velocity in ee_co-ordinate frame
+    V_ee = numpy.concatenate((scale_dx_trans, scale_dx_rot))
+
+    J = []
+
+    for joint in range(num_joints):
+        #velocities from joint to ee_co-ordinate frame joint_T_ee
+        joint_T_b = numpy.linalg.inv(joint_transforms[joint])
+        joint_T_ee = numpy.dot(b_T_ee_current, joint_T_b)
+        #break this into translation and rotation matrix -> it is needed
+        #for Vj matrix
+        joint_T_ee_trans = translation_matrix(joint_T_ee)
+
+        ###joint_T_ee_rot = rotation_matrix(joint_T_ee)
+
+        #Since inverse is used and rotation matrix is orthogonal
+
+        ee_T_joint_rot = numpy.transpose(rotation_matrix(joint_T_ee))
+
+        row1 = numpy.append(ee_T_joint_rot, numpy.dot(-1*ee_T_joint_rot, S_matrix(joint_T_ee_trans)), axis = 1)
+        row2 = numpy.append(numpy.zeros([3,3]),ee_T_joint_rot, axis = 1)
+
+        V_matrix = numpy.append(row1,row2, axis=0)
+        J.append(V_matrix[:,-1]) #appends as new row in J matrix so there is need for transpose
+
+    J = numpy.transpose(J)
+    J_pinv = numpy.linalg.pinv(J, 0.02)
+
+    dq = numpy.dot(J_pinv, V_ee)
+
+    if red_control:
+        #creating a velocity matrix for redundant axis
+        q0_vel = proportional_gain * numpy.array([q0_desired-q_current[0],0,0,0,0,0,0])
+        J_pinv_without_safety = numpy.linalg.pinv(J)
+        #normal calculations
+        q0_dotn= numpy.dot((numpy.subtract(numpy.identity(7),numpy.dot(J_pinv_without_safety,J))),q0_vel)
+        dq= numpy.add(dq, q0_dotn)
+
     return dq
+
+    #----------------------------------------------------------------------
+
     
 def convert_from_message(t):
     trans = tf.transformations.translation_matrix((t.translation.x,

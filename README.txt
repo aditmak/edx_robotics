@@ -27,7 +27,7 @@ edX_Robotics course by Columbia University : https://www.edx.org/course/robotics
 2. lwr_robot
 3. robot_sim
 
->> roslaunch ____
+>> roslaunch cartesian_control cartesian_control.launch
 
 # Project 5:
 1. lwr_robot

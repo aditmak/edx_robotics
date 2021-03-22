@@ -1,0 +1,7 @@
+<launch>
+    <node pkg="cartesian_control" type="marker_control.py" name="marker_control" output="screen"/>
+    <node pkg="cartesian_control" type="cartesian_control.py" name="cartesian_control" output="screen"/>
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen"/>
+    <node pkg="robot_sim" type="robot_sim_bringup" name="robot_sim" output="screen"/>
+    <node pkg="rviz" type="rviz" name="rviz_simulation" args="-d $(find cartesian_control)/config_file.rviz" output="screen"/>
+</launch>
