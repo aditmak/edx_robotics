@@ -198,9 +198,8 @@ class MoveArm(object):
         print(q_min, q_max)
         # Replace this with your code
         q_list = [q_start, q_goal]
-        
-        pass
-        # ===========================
+        rospy.loginfo(q_list)
+
 
     
     def create_trajectory(self, q_list, v_list, a_list, t):

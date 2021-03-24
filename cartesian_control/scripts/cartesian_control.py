@@ -40,10 +40,8 @@ def translation_matrix(matrix):
 def scaling(np_array, limit):
     norm = numpy.linalg.norm(np_array)
     if norm > limit:
-        scaling = np_array * (limit / norm)
-    else:
-        scaling = np_array
-    return scaling
+        np_array *= (limit/norm)
+    return np_array
 
 
 # This is the function that must be filled in as part of the Project.
