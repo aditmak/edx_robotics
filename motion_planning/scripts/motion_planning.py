@@ -55,7 +55,13 @@ def convert_from_trans_message(msg):
                                                msg.translation.z))
     return numpy.dot(T,R)
    
-   
+
+class RRT_Node:
+    def __init__(self, pos_config, parent):
+        self.pos_config = pos_config
+        self.parent = parent
+
+
 
 class MoveArm(object):
 
@@ -191,16 +197,90 @@ class MoveArm(object):
         req.robot_state.joint_state = current_joint_state
         res = self.state_valid_service(req)
         return res.valid
-        
-     
+
+    def get_random_point(self):
+        random_points = []
+        for i in range(self.num_joints):
+            random_points.append(random.uniform(self.q_min[i], self.q_max[i]))
+        return random_points
+
+    def get_closest_point(self, tree, q):
+        distances = [numpy.linalg.norm(numpy.subtract(q_pos, q)) for i, q_pos in enumerate(d["position_in_config_space"] for d in tree)]
+        min_distance_index = distances.index(min(distance))
+        closest_point = tree[min_distance_index].get("position_in_config_space")
+        return min_distance_index, closest_point
+
+    def get_point_at_distance(self, closest_point, random_point, size = 0.5):
+        vector = numpy.subtract(random_point, closest_point)
+        unit_vector = vector/numpy.linalg.norm(vector)
+        unit_vector *= size
+        vector = numpy.add(unit_vector, closest_point)
+        return vector
+
+    def discretize_path(self, closest_point, target_point):#Need to understand the math behind it
+        step_size = self.q_sample
+        max_num_points = max(numpy.ceil(numpy.true_divide(abs(numpy.subtract(target_point, closest_point)), step_size)))
+
+        m = numpy.true_divide(numpy.subtract(target_point, closest_point), max_num_points-1)
+        b = numpy.true_divide(numpy.subtract(numpy.multiply(closest_point, max_num_points), target_point), max_num_points-1)
+        T = [m*i+b for i in range(int(max_num_points)+1)]
+        return T
+
+    def is_collision_free_path(self, closest_point, target_point):
+        path = self.discretize_path(closest_point, target_point)
+
+        for row in path:
+            if not self.is_state_valid(row):
+                return False
+        return True
+
         
     def motion_plan(self, q_start, q_goal, q_min, q_max):
-        print(q_min, q_max)
-        # Replace this with your code
-        q_list = [q_start, q_goal]
-        rospy.loginfo(q_list)
+        rrt_object = {"position_in_config_space" : q_start, "parent_node" : -1}
+        rrt_list = []
+        rrt_list.append(rrt_object.copy())
+        rospy.loginfo('\n\n[RRT list]\n\n%s\n\n', rrt_list)
+
+        maximum_node = 150
+        while(len(rrt_list) < maximum_node):
+            random_point = self.get_random_point()
+            min_distance_index, closest_point = self.get_closest_point(rrt_list, random_point)
+            target_point = self.get_point_at_distance(closest_point, random_point, 0.5)
+
+            if self.is_collision_free_path(closest_point, target_point):
+                rrt_object.update({"position_in_config_space" : target_point})
+                rrt_object.update({"parent_node" : min_distance_index})
+                rrt_list.append(rrt_object.copy())
+
+                if self.is_collision_free_path(target_point, q_goal):
+                    parent_node = len(rrt_list) - 1
+                    rrt_object.update({"position_in_config_space" : q_goal})
+                    rrt_object.update({"parent_node" : parent_node})
+                    rrt_list.append(rrt_object.copy())
+                    break
 
 
+        q_list = [q_goal]
+        parent_node = rrt_list[-1].get("parent_node")
+        while True:
+            q_list.insert(0, rrt_list[parent_node].get("position_in_config_space"))
+
+            if parent_node <=0:
+                break
+            else:
+                parent_node = rrt_list[parent_node].get("parent_node")
+
+
+        q_list_copy = []
+        q_list_copy.append(q_list[0])
+
+        for i in range(len(q_list)-2):
+            if not self.is_collision_free_path(q_list[i], q_list[i+2]):
+                q_list_copy.append(q_list[i])
+        q_list_copy.append(q_list[-1])
+        q_list = q_list_copy
+
+        return q_list
     
     def create_trajectory(self, q_list, v_list, a_list, t):
         joint_trajectory = trajectory_msgs.msg.JointTrajectory()

@@ -35,4 +35,4 @@ edX_Robotics course by Columbia University : https://www.edx.org/course/robotics
 3. motion_planning
 4. robot_sim
 
->> roslaunch ____
+>> roslaunch motion_planning motion_planning.launch
