@@ -1,5 +1,3 @@
-edX_Robotics course by Columbia University : https://www.edx.org/course/robotics-columbiax-csmm-103x
-
 ## Basic File Structure and respective launch files
 
 # Project 1:
